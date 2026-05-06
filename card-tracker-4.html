@@ -1,0 +1,459 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>引き落とし管理</title>
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="引き落とし">
+<meta name="theme-color" content="#0a0e1a">
+<link rel="manifest" id="manifest-placeholder">
+<!-- PWA アイコン (SVGをbase64化してインライン) -->
+<link rel="apple-touch-icon" id="pwa-icon">
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@300;400;500;700&family=DM+Mono:wght@400;500&display=swap');
+
+  :root {
+    --bg: #0a0e1a;
+    --panel: #111827;
+    --panel2: #1a2235;
+    --border: #1e2d45;
+    --green: #22c55e;
+    --green-dim: rgba(34,197,94,0.12);
+    --blue: #38bdf8;
+    --blue-dim: rgba(56,189,248,0.1);
+    --amber: #fbbf24;
+    --amber-dim: rgba(251,191,36,0.1);
+    --red: #f87171;
+    --red-dim: rgba(248,113,113,0.1);
+    --text: #e2e8f0;
+    --muted: #4b6075;
+    --label: #94a3b8;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'Noto Sans JP', sans-serif;
+    min-height: 100vh;
+    padding-bottom: 48px;
+  }
+
+  .header {
+    background: #0d1526;
+    padding: 28px 20px 18px;
+    border-bottom: 1px solid var(--border);
+    position: sticky;
+    top: 0;
+    z-index: 10;
+  }
+
+  .header h1 {
+    font-size: 1.05rem;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+  }
+
+  .month-nav {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-top: 10px;
+  }
+
+  .month-nav button {
+    background: var(--panel2);
+    border: 1px solid var(--border);
+    color: var(--label);
+    border-radius: 8px;
+    width: 34px;
+    height: 34px;
+    font-size: 1.1rem;
+    cursor: pointer;
+    transition: all 0.15s;
+  }
+
+  .month-nav button:hover { border-color: var(--blue); color: var(--blue); }
+
+  .month-label {
+    font-family: 'DM Mono', monospace;
+    font-size: 1rem;
+    font-weight: 500;
+    flex: 1;
+    text-align: center;
+  }
+
+  .content { padding: 20px 16px; }
+
+  .section-title {
+    font-size: 0.65rem;
+    letter-spacing: 0.16em;
+    color: var(--muted);
+    text-transform: uppercase;
+    margin-bottom: 10px;
+  }
+
+  /* カード入力グリッド */
+  .cards-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 9px;
+    margin-bottom: 20px;
+  }
+
+  .card-item {
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: 13px;
+    padding: 12px 14px;
+    transition: border-color 0.2s;
+  }
+
+  .card-item:focus-within { border-color: var(--blue); }
+
+  .card-label {
+    font-size: 0.68rem;
+    color: var(--label);
+    margin-bottom: 7px;
+  }
+
+  .input-wrap {
+    display: flex;
+    align-items: center;
+    gap: 3px;
+  }
+
+  .yen-sym {
+    font-family: 'DM Mono', monospace;
+    font-size: 0.8rem;
+    color: var(--muted);
+  }
+
+  .card-item input {
+    width: 100%;
+    background: transparent;
+    border: none;
+    color: var(--text);
+    font-family: 'DM Mono', monospace;
+    font-size: 1rem;
+    font-weight: 500;
+    outline: none;
+    text-align: right;
+    min-width: 0;
+  }
+
+  .card-item input::placeholder { color: var(--muted); font-size: 0.82rem; }
+
+  /* ヒーロー合計 */
+  .total-hero {
+    background: linear-gradient(135deg, rgba(34,197,94,0.14), rgba(56,189,248,0.08));
+    border: 1px solid rgba(34,197,94,0.3);
+    border-radius: 18px;
+    padding: 18px 20px;
+    text-align: center;
+    margin-bottom: 20px;
+  }
+
+  .hero-label {
+    font-size: 0.68rem;
+    letter-spacing: 0.12em;
+    color: var(--label);
+    text-transform: uppercase;
+    margin-bottom: 5px;
+  }
+
+  .hero-amount {
+    font-family: 'DM Mono', monospace;
+    font-size: 2rem;
+    font-weight: 500;
+    color: var(--green);
+  }
+
+  /* サマリーブロック */
+  .summary-block {
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    overflow: hidden;
+    margin-bottom: 12px;
+  }
+
+  .summary-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 13px 16px;
+    border-bottom: 1px solid var(--border);
+    gap: 10px;
+  }
+
+  .summary-row:last-child { border-bottom: none; }
+
+  .row-label {
+    font-size: 0.8rem;
+    color: var(--label);
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-shrink: 0;
+  }
+
+  .dot {
+    width: 7px;
+    height: 7px;
+    border-radius: 50%;
+    flex-shrink: 0;
+  }
+
+  .row-value {
+    font-family: 'DM Mono', monospace;
+    font-size: 0.95rem;
+    font-weight: 500;
+    white-space: nowrap;
+  }
+
+  /* 編集可能行 */
+  .editable-val {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+  }
+
+  .editable-val .yen-sym { font-size: 0.78rem; }
+
+  .editable-val input {
+    background: var(--panel2);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    color: var(--text);
+    font-family: 'DM Mono', monospace;
+    font-size: 0.92rem;
+    font-weight: 500;
+    padding: 5px 9px;
+    width: 130px;
+    text-align: right;
+    outline: none;
+    transition: border-color 0.15s;
+  }
+
+  .editable-val input:focus { border-color: var(--blue); }
+
+  /* 色分け */
+  .row-green { background: var(--green-dim); }
+  .row-green .row-value { color: var(--green); }
+  .row-blue { background: var(--blue-dim); }
+  .row-blue .row-value { color: var(--blue); }
+  .row-amber { background: var(--amber-dim); }
+  .row-amber .row-value { color: var(--amber); }
+
+  .divider { height: 1px; background: var(--border); margin: 20px 0; }
+
+  .reset-btn {
+    display: block;
+    width: 100%;
+    margin-top: 24px;
+    background: transparent;
+    border: 1px solid var(--border);
+    color: var(--muted);
+    border-radius: 10px;
+    padding: 12px;
+    font-family: 'Noto Sans JP', sans-serif;
+    font-size: 0.78rem;
+    cursor: pointer;
+    letter-spacing: 0.05em;
+    transition: all 0.2s;
+  }
+
+  .reset-btn:hover { border-color: var(--red); color: var(--red); }
+</style>
+</head>
+<body>
+
+<div class="header">
+  <h1>💳 引き落とし管理</h1>
+  <div class="month-nav">
+    <button id="prevMonth">‹</button>
+    <div class="month-label" id="monthLabel"></div>
+    <button id="nextMonth">›</button>
+  </div>
+</div>
+
+<div class="content">
+
+  <div class="section-title">各カード 引き落とし額</div>
+  <div class="cards-grid">
+    <div class="card-item">
+      <div class="card-label">三井住友カード</div>
+      <div class="input-wrap"><span class="yen-sym">¥</span><input type="text" inputmode="numeric" id="c1" placeholder="0" oninput="fmtInput(this)"></div>
+    </div>
+    <div class="card-item">
+      <div class="card-label">Olive</div>
+      <div class="input-wrap"><span class="yen-sym">¥</span><input type="text" inputmode="numeric" id="c2" placeholder="0" oninput="fmtInput(this)"></div>
+    </div>
+    <div class="card-item">
+      <div class="card-label">楽天カード</div>
+      <div class="input-wrap"><span class="yen-sym">¥</span><input type="text" inputmode="numeric" id="c3" placeholder="0" oninput="fmtInput(this)"></div>
+    </div>
+    <div class="card-item">
+      <div class="card-label">PayPayカード</div>
+      <div class="input-wrap"><span class="yen-sym">¥</span><input type="text" inputmode="numeric" id="c4" placeholder="0" oninput="fmtInput(this)"></div>
+    </div>
+    <div class="card-item">
+      <div class="card-label">セゾンカード</div>
+      <div class="input-wrap"><span class="yen-sym">¥</span><input type="text" inputmode="numeric" id="c5" placeholder="0" oninput="fmtInput(this)"></div>
+    </div>
+    <div class="card-item">
+      <div class="card-label">メルカード</div>
+      <div class="input-wrap"><span class="yen-sym">¥</span><input type="text" inputmode="numeric" id="c6" placeholder="0" oninput="fmtInput(this)"></div>
+    </div>
+    <div class="card-item">
+      <div class="card-label">ビューカード</div>
+      <div class="input-wrap"><span class="yen-sym">¥</span><input type="text" inputmode="numeric" id="c7" placeholder="0" oninput="fmtInput(this)"></div>
+    </div>
+  </div>
+
+  <!-- カード合計 -->
+  <div class="total-hero">
+    <div class="hero-label">カード引き落とし 合計</div>
+    <div class="hero-amount" id="cardTotal">¥0</div>
+  </div>
+
+  <!-- 固定費・総計 -->
+  <div class="section-title">固定費・総計</div>
+  <div class="summary-block">
+    <div class="summary-row">
+      <div class="row-label"><span class="dot" style="background:#818cf8"></span>固定費</div>
+      <div class="editable-val">
+        <span class="yen-sym">¥</span>
+        <input type="text" inputmode="numeric" id="fixedCost" placeholder="0" oninput="fmtInput(this)">
+      </div>
+    </div>
+    <div class="summary-row row-blue">
+      <div class="row-label"><span class="dot" style="background:var(--blue)"></span>総計（カード＋固定費）</div>
+      <div class="row-value" id="grandTotal">¥0</div>
+    </div>
+  </div>
+
+  <!-- 21日以降 -->
+  <div class="section-title">21日以降</div>
+  <div class="summary-block">
+    <div class="summary-row row-amber">
+      <div class="row-label"><span class="dot" style="background:var(--amber)"></span>21日以降（総計 − ¥23,000）</div>
+      <div class="row-value" id="after21">¥0</div>
+    </div>
+  </div>
+
+  <!-- 確保済み預金 -->
+  <div class="section-title">別口座 確保済み預金</div>
+  <div class="summary-block">
+    <div class="summary-row">
+      <div class="row-label"><span class="dot" style="background:var(--green)"></span>確保済み金額</div>
+      <div class="editable-val">
+        <span class="yen-sym">¥</span>
+        <input type="text" inputmode="numeric" id="savings" placeholder="0" oninput="fmtInput(this)">
+      </div>
+    </div>
+    <div class="summary-row row-green">
+      <div class="row-label"><span class="dot" style="background:var(--green)"></span>総計 − 確保済み</div>
+      <div class="row-value" id="afterSavings">¥0</div>
+    </div>
+    <div class="summary-row row-amber">
+      <div class="row-label"><span class="dot" style="background:var(--amber)"></span>総計 − 確保済み − ¥23,000</div>
+      <div class="row-value" id="afterBoth">¥0</div>
+    </div>
+  </div>
+
+  <button class="reset-btn" onclick="resetAll()">🗑 この月のデータをリセット</button>
+
+</div>
+
+<script>
+  const now = new Date();
+  let year = now.getFullYear();
+  let month = now.getMonth() + 1;
+
+  function monthKey() {
+    return `card-${year}-${String(month).padStart(2,'0')}`;
+  }
+
+  function updateMonthLabel() {
+    document.getElementById('monthLabel').textContent = `${year}年 ${month}月`;
+  }
+
+  document.getElementById('prevMonth').onclick = () => {
+    saveData();
+    if (--month < 1) { month = 12; year--; }
+    loadData();
+  };
+
+  document.getElementById('nextMonth').onclick = () => {
+    saveData();
+    if (++month > 12) { month = 1; year++; }
+    loadData();
+  };
+
+  function fmt(n) {
+    return '¥' + Math.round(n).toLocaleString('ja-JP');
+  }
+
+  function fmtInput(el) {
+    const raw = el.value.replace(/[^\d]/g, '');
+    el.value = raw ? parseInt(raw).toLocaleString('ja-JP') : '';
+    calc();
+  }
+
+  function getVal(id) {
+    const raw = document.getElementById(id).value.replace(/[^\d]/g, '');
+    return parseInt(raw) || 0;
+  }
+
+  function calc() {
+    const cardIds = ['c1','c2','c3','c4','c5','c6','c7'];
+    const cardSum = cardIds.reduce((s, id) => s + getVal(id), 0);
+    const fixed = getVal('fixedCost');
+    const grand = cardSum + fixed;
+    const sav = getVal('savings');
+    const deduct = 23000;
+
+    document.getElementById('cardTotal').textContent = fmt(cardSum);
+    document.getElementById('grandTotal').textContent = fmt(grand);
+    document.getElementById('after21').textContent = fmt(grand - deduct);
+    document.getElementById('afterSavings').textContent = fmt(grand - sav);
+    document.getElementById('afterBoth').textContent = fmt(grand - sav - deduct);
+
+    saveData();
+  }
+
+  function saveData() {
+    const ids = ['c1','c2','c3','c4','c5','c6','c7','fixedCost','savings'];
+    const data = {};
+    ids.forEach(id => data[id] = document.getElementById(id).value.replace(/[^\d]/g, ''));
+    localStorage.setItem(monthKey(), JSON.stringify(data));
+  }
+
+  function loadData() {
+    updateMonthLabel();
+    const ids = ['c1','c2','c3','c4','c5','c6','c7','fixedCost','savings'];
+    const raw = localStorage.getItem(monthKey());
+    const data = raw ? JSON.parse(raw) : {};
+    ids.forEach(id => {
+      const v = data[id];
+      document.getElementById(id).value = v ? parseInt(v).toLocaleString('ja-JP') : '';
+    });
+    calc();
+  }
+
+  function resetAll() {
+    if (!confirm('この月のデータをリセットしますか？')) return;
+    localStorage.removeItem(monthKey());
+    loadData();
+  }
+
+  loadData();
+</script>
+</body>
+</html>
